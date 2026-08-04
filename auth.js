@@ -1,7 +1,21 @@
-// Sistema de Autenticação e Permissões - Leitores PRO - v2 CORRIGIDO
+// Auth v8 - OFFLINE TOTAL - funciona 100% sem internet
 (function(){
     const ADMIN_USER = 'admin';
     const ADMIN_PASS = '123';
+
+    // Garante que operadores padrão existe SINCRONO, antes de tudo
+    (function garanteAdminOffline(){
+        try{
+            let ops = localStorage.getItem('operadores');
+            if(!ops || ops==='[]'){
+                const adminPadrao = [{id:'1',matricula:'ADMIN',nome:'Administrador',usuario:'admin',senha:'123',perfil:'admin',turno:'Administrativo',status:'Ativo'}];
+                localStorage.setItem('operadores', JSON.stringify(adminPadrao));
+            }
+            if(!localStorage.getItem('produtos')) localStorage.setItem('produtos','[]');
+            if(!localStorage.getItem('testes')) localStorage.setItem('testes','[]');
+            if(!localStorage.getItem('logs_evidencia')) localStorage.setItem('logs_evidencia','[]');
+        }catch(e){ console.log('storage fail',e); }
+    })();
 
     function getOperadores(){
         try { return JSON.parse(localStorage.getItem('operadores')||'[]'); } catch { return []; }
@@ -9,26 +23,39 @@
 
     function getSession(){
         try {
+            // tenta sessionStorage, fallback localStorage para offline persistente
+            let logged = sessionStorage.getItem('logged') || localStorage.getItem('session_logged');
             return {
-                logged: sessionStorage.getItem('logged') === 'true',
-                role: sessionStorage.getItem('user_role') || '',
-                nome: sessionStorage.getItem('user_nome') || '',
-                matricula: sessionStorage.getItem('user_matricula') || '',
-                id: sessionStorage.getItem('user_id') || ''
+                logged: logged === 'true',
+                role: sessionStorage.getItem('user_role') || localStorage.getItem('session_role') || '',
+                nome: sessionStorage.getItem('user_nome') || localStorage.getItem('session_nome') || '',
+                matricula: sessionStorage.getItem('user_matricula') || localStorage.getItem('session_matricula') || '',
+                id: sessionStorage.getItem('user_id') || localStorage.getItem('session_id') || ''
             };
         } catch { return {logged:false, role:'', nome:'', matricula:'', id:''}; }
     }
 
     function saveSession({role, nome, matricula, id}){
-        sessionStorage.setItem('logged','true');
-        sessionStorage.setItem('user_role', role);
-        sessionStorage.setItem('user_nome', nome);
-        sessionStorage.setItem('user_matricula', matricula);
-        sessionStorage.setItem('user_id', id || matricula);
+        try{
+            sessionStorage.setItem('logged','true');
+            sessionStorage.setItem('user_role', role);
+            sessionStorage.setItem('user_nome', nome);
+            sessionStorage.setItem('user_matricula', matricula);
+            sessionStorage.setItem('user_id', id || matricula);
+            // backup offline em localStorage
+            localStorage.setItem('session_logged','true');
+            localStorage.setItem('session_role', role);
+            localStorage.setItem('session_nome', nome);
+            localStorage.setItem('session_matricula', matricula);
+            localStorage.setItem('session_id', id || matricula);
+        }catch(e){}
     }
 
     function clearSession(){
-        ['logged','user_role','user_nome','user_matricula','user_id'].forEach(k=>sessionStorage.removeItem(k));
+        try{
+            ['logged','user_role','user_nome','user_matricula','user_id'].forEach(k=>sessionStorage.removeItem(k));
+            ['session_logged','session_role','session_nome','session_matricula','session_id'].forEach(k=>localStorage.removeItem(k));
+        }catch{}
     }
 
     function tentarLogin(usuario, senha){
@@ -36,18 +63,19 @@
         const p = (senha||'').trim();
         if(!u || !p) return {ok:false, msg:'Preencha usuário e senha'};
 
+        // ADMIN FIXO - funciona sempre offline
         if(u.toLowerCase() === ADMIN_USER && p === ADMIN_PASS){
             saveSession({role:'admin', nome:'Administrador', matricula:'ADMIN', id:'admin'});
             return {ok:true, role:'admin'};
         }
 
         const ops = getOperadores();
-        let op = ops.find(o => o.matricula.toLowerCase() === u.toLowerCase() && o.status === 'Ativo');
+        let op = ops.find(o => (o.matricula && o.matricula.toLowerCase() === u.toLowerCase()) && o.status === 'Ativo');
         if(!op){
             op = ops.find(o => (o.usuario && o.usuario.toLowerCase() === u.toLowerCase()) && o.status === 'Ativo');
         }
         if(op){
-            const senhaCorreta = op.senha || op.matricula; // fallback legado
+            const senhaCorreta = op.senha || op.matricula;
             if(p === senhaCorreta){
                 const role = (op.perfil === 'admin') ? 'admin' : 'operador';
                 saveSession({role, nome: op.nome, matricula: op.matricula, id: op.id});
@@ -56,7 +84,7 @@
                 return {ok:false, msg:'Senha inválida'};
             }
         }
-        return {ok:false, msg:'Usuário ou senha inválidos'};
+        return {ok:false, msg:'Usuário ou senha inválidos - verifique se está cadastrado. Dica offline: admin/123'};
     }
 
     function requireLogin(){
@@ -76,17 +104,15 @@
         if(!s.logged) return requireLogin();
         const pagina = (window.location.pathname.split('/').pop()||'').toLowerCase();
         const paginasOperador = ['testes.html', 'logs.html']; 
-        const paginasLivres = ['index.html',''];
         const paginasBloqueadasOperador = ['produtos.html','operadores.html','etiquetas.html','historico.html','relatorios.html'];
-
         if(s.role === 'operador'){
-            if(paginasLivres.includes(pagina)){
-                window.location.href = 'testes.html';
+            if(pagina==='index.html' || pagina===''){
+                window.location.href='testes.html';
                 return false;
             }
-            if(paginasBloqueadasOperador.includes(pagina) || !paginasOperador.includes(pagina)){
-                alert('Acesso restrito: operadores só podem acessar Testes e Meus Logs');
-                window.location.href = 'testes.html';
+            if(paginasBloqueadasOperador.includes(pagina)){
+                alert('Acesso restrito: operadores só podem acessar Testes');
+                window.location.href='testes.html';
                 return false;
             }
         }
@@ -97,17 +123,8 @@
         const s = getSession();
         if(!s.logged) return;
         document.querySelectorAll('#nomeUsuario, #userName, .user-name-display, #nomeUsuarioTeste').forEach(el=>{
-            el.innerHTML = `${escapeHtml(s.nome)} <span class="badge ${s.role==='admin'?'bg-danger':'bg-success'} ms-2" style="font-size:10px">${s.role.toUpperCase()}</span>`;
+            if(el) el.innerHTML = `${escapeHtml(s.nome)} <span class="badge ${s.role==='admin'?'bg-danger':'bg-success'} ms-2" style="font-size:10px">${s.role.toUpperCase()}</span> <small class="badge bg-secondary ms-1">${navigator.onLine?'🌐':'📴'}</small>`;
         });
-        if(s.role === 'operador'){
-            document.querySelectorAll('.sidebar a').forEach(a=>{
-                const href = (a.getAttribute('href')||'').toLowerCase();
-                if(href.includes('produtos.html') || href.includes('operadores.html') || href.includes('historico') || href.includes('relatorios') || href.includes('etiquetas.html')){
-                    const li = a.closest('li'); if(li) li.style.display='none'; else a.style.display='none';
-                }
-            });
-            document.querySelectorAll('[data-admin-only]').forEach(b=>b.style.display='none');
-        }
     }
 
     function escapeHtml(str){
@@ -125,7 +142,6 @@
             requirePermission();
             aplicarVisualPermissoes();
         } else {
-            // se já logado no index, mostra app
             const s = getSession();
             if(s.logged && document.getElementById('loginPage')){
                 if(s.role==='operador'){
