@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema Teste Leitores PRO</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Segoe UI,Tahoma,sans-serif}
+body{background:#f4f6f9;overflow:hidden}
+#loginPage{width:100%;height:100vh;display:flex;justify-content:center;align-items:center;background:linear-gradient(135deg,#0d6efd,#1e88e5)}
+.login-card{width:420px;background:white;padding:40px;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+#app{display:none;height:100vh}
+.sidebar{width:250px;background:#212529;color:white;height:100vh;position:fixed;left:0;top:0;overflow-y:auto}
+.sidebar h3{padding:20px;text-align:center;background:#0d6efd}
+.sidebar ul{list-style:none;padding:0;margin:0}
+.sidebar a{color:white;text-decoration:none;display:block;padding:15px 20px;transition:.3s}
+.sidebar a:hover,.sidebar a.active{background:#0d6efd}
+.sidebar li.logout{padding:15px 20px;cursor:pointer}
+.sidebar li.logout:hover{background:#dc3545}
+.topbar{margin-left:250px;height:60px;background:white;display:flex;justify-content:space-between;align-items:center;padding:0 25px;box-shadow:0 2px 5px rgba(0,0,0,.1)}
+.content{margin-left:250px;padding:25px;height:calc(100vh - 60px);overflow:auto}
+.card-dashboard{border:none;border-radius:15px;padding:20px;box-shadow:0 5px 15px rgba(0,0,0,.08);transition:.3s}
+.card-dashboard:hover{transform:translateY(-5px)}
+.big-number{font-size:35px;font-weight:bold}
+#offlineIndicator{position:fixed;bottom:20px;right:20px;z-index:10000;padding:10px 16px;border-radius:30px;font-size:13px;font-weight:600;display:none}
+#offlineIndicator.offline{display:block;background:#dc3545;color:white}
+#offlineIndicator.online{display:block;background:#198754;color:white}
+</style>
+</head>
+<body>
+<div id="loginPage">
+    <div class="login-card">
+        <h2 class="text-center mb-4" style="color:#0d6efd"><i class="bi bi-cpu"></i> Sistema Teste Leitores</h2>
+        <div id="loginMsg" class="alert alert-danger py-2" style="display:none"></div>
+        <div class="mb-3"><label>Usuário / Matrícula</label><input id="user" class="form-control" placeholder="admin ou matrícula"></div>
+        <div class="mb-3"><label>Senha</label><input id="pass" type="password" class="form-control" placeholder="123 ou matrícula"></div>
+        <button class="btn btn-primary w-100" onclick="fazerLogin()">Entrar</button>
+        <small class="text-muted d-block mt-3 text-center">Admin: admin / 123<br>Operador: matrícula / senha cadastrada</small>
+    </div>
+</div>
+
+<div id="app">
+    <div class="sidebar">
+        <h3><i class="bi bi-upc-scan"></i> Leitores PRO</h3>
+        <ul>
+            <li><a href="index.html" class="active"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+            <li><a href="produtos.html"><i class="bi bi-box-seam"></i> Produtos</a></li>
+            <li><a href="operadores.html"><i class="bi bi-people"></i> Operadores</a></li>
+            <li><a href="testes.html"><i class="bi bi-clipboard-check"></i> Testes</a></li>
+            <li><a href="#" onclick="AuthSystem.logout()"><i class="bi bi-box-arrow-left"></i> Sair</a></li>
+        </ul>
+    </div>
+    <div class="topbar"><h4>Dashboard</h4><div id="nomeUsuario">Carregando...</div></div>
+    <div class="content">
+        <div class="row g-3 mb-4">
+            <div class="col-md-3"><div class="card-dashboard"><h6 class="text-muted">Total Testes</h6><div class="big-number" id="totalTestes">0</div></div></div>
+            <div class="col-md-3"><div class="card-dashboard"><h6 class="text-muted">Aprovados</h6><div class="big-number text-success" id="totalAprovados">0</div></div></div>
+            <div class="col-md-3"><div class="card-dashboard"><h6 class="text-muted">Reprovados</h6><div class="big-number text-danger" id="totalReprovados">0</div></div></div>
+            <div class="col-md-3"><div class="card-dashboard"><h6 class="text-muted">Produtos</h6><div class="big-number" id="totalProdutos">0</div></div></div>
+        </div>
+        <div class="card"><div class="card-header"><h5 class="mb-0">Últimos Testes</h5></div>
+            <div class="card-body"><div class="table-responsive"><table class="table table-hover"><thead><tr><th>Série</th><th>Produto</th><th>Modelo</th><th>Operador</th><th>Resultado</th></tr></thead><tbody id="ultimosTestes"></tbody></table></div></div>
+        </div>
+    </div>
+</div>
+
+<div id="offlineIndicator"></div>
+<script src="auth.js"></script>
+<script>
+function fazerLogin(){
+    const u=document.getElementById('user').value;
+    const p=document.getElementById('pass').value;
+    const r=AuthSystem.tentarLogin(u,p);
+    if(r.ok){
+        if(r.role==='operador') window.location.href='testes.html';
+        else mostrarApp();
+    } else {
+        const msg=document.getElementById('loginMsg');
+        msg.textContent=r.msg; msg.style.display='block';
+    }
+}
+function mostrarApp(){
+    document.getElementById('loginPage').style.display='none';
+    document.getElementById('app').style.display='block';
+    AuthSystem.aplicarVisualPermissoes();
+    atualizarDashboard();
+}
+function logout(){ AuthSystem.logout(); }
+function atualizarDashboard(){
+    const testes=JSON.parse(localStorage.getItem('testes')||'[]');
+    const produtos=JSON.parse(localStorage.getItem('produtos')||'[]');
+    document.getElementById('totalTestes').innerText=testes.length;
+    document.getElementById('totalAprovados').innerText=testes.filter(t=>t.resultado==='APROVADO').length;
+    document.getElementById('totalReprovados').innerText=testes.filter(t=>t.resultado==='REPROVADO').length;
+    document.getElementById('totalProdutos').innerText=produtos.length;
+    const tbody=document.getElementById('ultimosTestes');
+    const ultimos=testes.slice(0,8);
+    tbody.innerHTML=ultimos.length===0?'<tr><td colspan="5" class="text-center text-muted py-4">Nenhum teste</td></tr>':
+    ultimos.map(t=>`<tr><td><strong>${esc(t.serie)}</strong></td><td>${esc(t.produtoCodigo)}</td><td>${esc(t.modelo||'-')}</td><td>${esc(t.operador)}</td><td><span class="badge ${t.resultado==='APROVADO'?'bg-success':'bg-danger'}">${esc(t.resultado)}</span></td></tr>`).join('');
+}
+function esc(s){ return (s||'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+document.addEventListener('DOMContentLoaded',()=>{
+    if(!localStorage.getItem('produtos')) localStorage.setItem('produtos','[]');
+    if(!localStorage.getItem('operadores')) localStorage.setItem('operadores',JSON.stringify([{id:'1',matricula:'ADMIN',nome:'Administrador',usuario:'admin',senha:'123',perfil:'admin',turno:'Administrativo',status:'Ativo'}]));
+    if(!localStorage.getItem('testes')) localStorage.setItem('testes','[]');
+    const s=AuthSystem.getSession();
+    if(s.logged){
+        if(s.role==='operador') window.location.href='testes.html';
+        else mostrarApp();
+    }
+    document.getElementById('pass').addEventListener('keydown',e=>{ if(e.key==='Enter') fazerLogin(); });
+});
+
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('./sw.js'); }); }
+function updateOnlineStatus(){ const el=document.getElementById('offlineIndicator'); if(!navigator.onLine){ el.textContent='📴 Offline'; el.className='offline'; el.style.display='block'; } else { el.textContent='🌐 Online'; el.className='online'; el.style.display='block'; setTimeout(()=>el.style.display='none',3000);} }
+window.addEventListener('online',updateOnlineStatus); window.addEventListener('offline',updateOnlineStatus);
+</script>
+</body>
+</html>
