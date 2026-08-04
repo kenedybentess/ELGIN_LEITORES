@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testes EL250 - PRO</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d6efd">
+<style>
+*{font-family:Segoe UI,Tahoma,sans-serif} body{background:#f4f6f9;padding:20px}
+.header{background:linear-gradient(135deg,#0d6efd,#1e88e5);color:white;padding:22px;border-radius:15px;margin-bottom:15px}
+.top-nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.top-nav a{padding:9px 14px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.top-nav a.btn-nav{background:white;border:1px solid #dee2e6;color:#333}
+.top-nav a.btn-nav:hover{background:#0d6efd;color:white}
+.top-nav a.btn-etq{background:linear-gradient(135deg,#0d6efd,#1e88e5);color:white}
+.step-card{border:3px solid #dee2e6;border-radius:15px;padding:18px;margin-bottom:12px;background:white}
+.step-card.ativo{border-color:#ffc107;background:#fff3cd} .step-card.concluido{border-color:#198754;background:#d1e7dd} .step-card.erro{border-color:#dc3545;background:#f8d7da}
+.scan-ativo{border:3px solid #ffc107!important;background:#fff3cd!important;font-size:22px!important}
+.input-leitura{font-size:20px;padding:14px;text-align:center}
+.log-box{background:#111;color:#0f0;font-family:monospace;font-size:12px;padding:14px;border-radius:8px;max-height:300px;overflow:auto;white-space:pre-wrap}
+.config-fixed{background:#fff;border:2px solid #0d6efd;border-radius:12px}
+.serie-box{background:#212529;color:white;border-radius:12px;padding:18px}
+.serie-box.piscar{animation:piscar 1s infinite}
+@keyframes piscar{0%{box-shadow:0 0 0 0 rgba(25,135,84,.7)}70%{box-shadow:0 0 0 15px rgba(25,135,84,0)}100%{box-shadow:0 0 0 0 rgba(25,135,84,0)}}
+.rede-box{border:2px dashed #0d6efd;background:#e7f1ff;border-radius:12px}
+.config-share{background:#fff3cd;border:2px solid #ffc107;border-radius:12px}
+#offlineIndicator{position:fixed;bottom:20px;right:20px;z-index:10000;padding:10px 16px;border-radius:30px;font-size:13px;font-weight:600;display:none}
+#offlineIndicator.offline{display:block;background:#dc3545;color:white}
+#offlineIndicator.online{display:block;background:#198754;color:white}
+#mainTabs{position:fixed;top:0;left:0;right:0;z-index:6000;background:#212529;display:flex;align-items:center;padding:0 12px;height:52px;gap:8px;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+#mainTabs button.tabBtn{padding:8px 18px;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer}
+#mainTabs button.tab-ativo{background:#0d6efd;color:white}
+#mainTabs button.tab-inativo{background:#343a40;color:#adb5bd}
+.tab-content{display:none;padding-top:58px}
+.tab-content.ativo{display:block}
+#frameEtiquetas{width:100%;height:calc(100vh - 58px);border:none;background:white}
+</style>
+</head>
+<body>
+
+<div id="mainTabs" class="no-print">
+  <button id="btnTabTestes" class="tabBtn tab-ativo" onclick="switchTab('testes')"><i class="bi bi-clipboard-check"></i> TESTES</button>
+  <button id="btnTabEtiquetas" class="tabBtn tab-inativo" onclick="switchTab('etiquetas')" data-admin-only><i class="bi bi-printer"></i> ETIQUETAS</button>
+  <span class="ms-auto text-white-50 small" id="nomeUsuarioTeste" style="margin-right:12px">Carregando...</span>
+  <span class="badge bg-light text-dark" id="statusTesteAba"></span>
+  <button class="btn btn-sm btn-outline-light ms-2" onclick="AuthSystem.logout()"><i class="bi bi-box-arrow-left"></i> Sair</button>
+</div>
+
+<div id="tabTestes" class="tab-content ativo">
+
+<div class="header d-flex justify-content-between align-items-center">
+<div><h4 class="mb-0"><i class="bi bi-upc-scan"></i> Teste Leitores EL250</h4><small id="contadorTotal" class="badge bg-light text-dark mt-1">Total: 0</small></div>
+<span class="d-flex gap-2"><button class="btn btn-sm btn-outline-light" onclick="forcarRecarregarTudo()"><i class="bi bi-arrow-clockwise"></i> Recarregar</button><button class="btn btn-sm btn-light" onclick="if(window._ultimoLog) imprimirEtiquetaAuto(window._ultimoLog); else alert('Faça um teste primeiro')" id="btnEtiqTop" style="display:none"><i class="bi bi-printer"></i> Imprimir etiqueta</button></span>
+</div>
+
+<div class="card config-share mb-3 no-print" data-admin-only>
+<div class="card-header bg-warning text-dark d-flex justify-content-between"><b><i class="bi bi-share"></i> CADASTRO ÚNICO REDE</b><small class="badge bg-dark">\\10.50.1.143\Volume_1\log leitores\config\</small></div>
+<div class="card-body py-2">
+<div class="row g-2">
+<div class="col-md-5"><button class="btn btn-dark btn-sm" onclick="salvarProdutosNaRede()"><i class="bi bi-cloud-upload"></i> Salvar na Rede</button> <button class="btn btn-success btn-sm" onclick="carregarProdutosDaRede()"><i class="bi bi-cloud-download"></i> Carregar da Rede</button> <button class="btn btn-outline-primary btn-sm" onclick="exportarProdutos()">Exportar JSON</button> <input type="file" id="fileImport" accept=".json" style="display:none" onchange="importarJSON(event)"><button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('fileImport').click()">Importar</button></div>
+<div class="col-md-7"><div id="statusShare" class="small p-2 bg-white rounded border" style="min-height:38px;font-size:11px">Pronto</div></div>
+</div>
+</div>
+</div>
+
+<div class="card rede-box mb-3 no-print">
+<div class="card-body py-2">
+<div class="row g-2 align-items-center">
+<div class="col-md-5"><label class="small fw-bold text-primary"><i class="bi bi-hdd-network"></i> LOGS: \\10.50.1.143\Volume_1\log leitores</label><div class="d-flex gap-2 mt-1"><button class="btn btn-primary btn-sm" onclick="selecionarPastaRede()">Selecionar Pasta</button><button class="btn btn-success btn-sm" onclick="forcarSalvarRede()">Salvar Agora</button><button class="btn btn-outline-dark btn-sm" onclick="testarPastaRede()">Testar</button></div></div>
+<div class="col-md-4"><input id="caminhoRede" class="form-control form-control-sm" readonly value="\\10.50.1.143\Volume_1\log leitores"><div id="statusPasta" class="small mt-1 p-1 bg-white rounded border" style="min-height:32px;font-size:11px">Selecione a pasta</div></div>
+<div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="chkAutoSalvar" checked><label class="form-check-label small fw-bold" for="chkAutoSalvar">Salvar auto na rede</label></div><div class="form-check"><input class="form-check-input" type="checkbox" id="chkAutoVolta" checked><label class="form-check-label small fw-bold" for="chkAutoVolta">Voltar auto 3s</label></div><div class="form-check"><input class="form-check-input" type="checkbox" id="chkAutoImprimirEtiqueta" checked><label class="form-check-label small fw-bold text-success" for="chkAutoImprimirEtiqueta">🖨️ Imprimir etiqueta auto</label></div></div>
+</div>
+</div>
+</div>
+
+<div class="card config-fixed mb-3 no-print"><div class="card-header bg-primary text-white d-flex justify-content-between"><b><i class="bi bi-gear"></i> CONFIGURAÇÃO FIXA</b><small id="statusConfig" class="badge bg-light text-primary">Carregando...</small></div>
+<div class="card-body"><div class="row g-2"><div class="col-md-4"><label class="small fw-bold">Produto *</label><select id="produtoSel" class="form-select form-select-lg"></select></div><div class="col-md-4"><label class="small fw-bold">Operador *</label><select id="operadorSel" class="form-select form-select-lg"></select></div><div class="col-md-4"><label class="small fw-bold">Modelo *</label><input id="modeloSel" class="form-control form-control-lg" value="46EL250USC01"></div></div><div class="mt-2 d-flex gap-2"><button class="btn btn-primary btn-sm" onclick="salvarConfigFixa()">Salvar Configuração</button><button class="btn btn-outline-secondary btn-sm" onclick="editarConfigFixa()">Editar</button></div></div></div>
+
+<div class="card serie-box mb-4 no-print" id="cardSerie"><div class="card-body"><div class="row align-items-end"><div class="col-md-8"><label class="small text-warning fw-bold"><i class="bi bi-upc-scan"></i> NÚMERO DE SÉRIE - BIPE AQUI *</label><input id="serieSel" class="form-control form-control-lg" placeholder="Bipe SN aqui" autocomplete="off"></div><div class="col-md-4"><button class="btn btn-success btn-lg w-100" style="height:58px" onclick="iniciarSequencia()"><i class="bi bi-play-fill"></i> INICIAR TESTE</button></div></div><div id="msgAutoVolta" class="alert alert-success mt-3" style="display:none"><i class="bi bi-arrow-clockwise"></i> Próximo em <b id="contadorRegressivo">3</b>s... <span class="float-end">Hoje: <b id="totalHoje">0</b></span></div></div></div>
+
+<div id="areaSequencia" class="no-print" style="display:none"><div class="alert alert-info py-2 d-flex justify-content-between"><span><b id="infoResumo"></b></span><span>Início: <b id="horaInicio"></b> | Total: <b id="totalCodigos">0</b></span></div><div id="stepsContainer"></div></div>
+<div id="resultadoFinal" class="card mt-3 no-print" style="display:none"></div>
+
+<div id="comprovante" style="display:none;background:white;border:2px solid #000;padding:18px;margin-top:18px">
+<div style="display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:8px"><div><b>ELGIN</b><br><small>CNPJ 14.200.166/0005-90</small></div><div style="text-align:right"><div id="compResultado" style="font-weight:900;font-size:20px">APROVADO</div><small id="compID"></small></div></div>
+<h6 class="text-center my-3">COMPROVANTE - EVIDÊNCIA</h6>
+<table border="1" cellpadding="5" style="width:100%;border-collapse:collapse;font-size:11px"><tr><td><b>Início</b></td><td id="c_inicio"></td><td><b>Fim</b></td><td id="c_fim"></td></tr><tr><td><b>Produto</b></td><td id="c_prod"></td><td><b>Modelo</b></td><td id="c_model"></td></tr><tr><td><b>Série</b></td><td id="c_serie"></td><td><b>Operador</b></td><td id="c_oper"></td></tr><tr><td><b>Duração</b></td><td id="c_dur"></td><td><b>Hash</b></td><td id="c_hash" style="font-family:monospace;font-size:9px"></td></tr></table>
+<table border="1" cellpadding="4" style="width:100%;border-collapse:collapse;font-size:10px;margin-top:10px"><thead><tr style="background:#eee"><th># - Nome</th><th>Esperado</th><th>Lido</th><th>Status</th><th>Hora</th></tr></thead><tbody id="c_leituras"></tbody></table>
+<div class="no-print mt-3 text-center d-flex gap-2 justify-content-center flex-wrap"><button class="btn btn-dark btn-sm" onclick="window.print()">Imprimir Comprovante</button><button class="btn btn-primary btn-sm" onclick="forcarSalvarRede()">Salvar na Rede</button><button class="btn btn-success btn-sm" onclick="voltarParaSerieManual()">Próximo Leitor</button><button class="btn btn-warning btn-sm" id="btnImprimirComprovante" onclick="if(window._ultimoLog){ if(window._ultimoLog.resultado!=='APROVADO'){ alert('🚫 Só APROVADO gera etiqueta'); } else { imprimirEtiquetaAuto(window._ultimoLog); } }"><i class="bi bi-printer"></i> Imprimir Etiqueta</button></div>
+</div>
+<div id="areaLogTerminal" class="card mt-3 no-print" style="display:none"><div class="card-header bg-dark text-white py-2">LOG BRUTO</div><div class="card-body p-0"><div class="log-box" id="logTerminal"></div></div></div>
+
+</div><!-- fim tabTestes -->
+
+<div id="tabEtiquetas" class="tab-content">
+  <iframe id="frameEtiquetas" src="etiquetas.html"></iframe>
+</div>
+
+<div id="offlineIndicator"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="auth.js"></script>
+<script src="offline-barcode.js"></script>
+<script>
+// ===== CORE TESTES - MANTIDO DO ORIGINAL COM CORREÇÕES =====
+let stepAtual=0,dadosTeste={},inicioTimestamp=null,configFixa=null;
+let codigosEsperados={}, listaCodigosProduto=[];
+let dirHandleRede=null, dirHandleConfig=null;
+let contadorInterval=null;
+
+function esc(s){return (s||'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+document.addEventListener('DOMContentLoaded', async ()=>{
+  await inicializarDadosCompartilhados();
+  carregarProdutos(); carregarOperadores(); carregarConfigFixa(); restaurarHandleIDB();
+  atualizarContadorTotal();
+  document.getElementById('serieSel').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();iniciarSequencia();}});
+  document.getElementById('serieSel').addEventListener('input', atualizarEtiquetaAuto);
+});
+
+async function inicializarDadosCompartilhados(){
+  try{
+    const r=await fetch('./produtos.json?_='+Date.now());
+    if(r.ok){ const j=await r.json(); if(j.length>0){ localStorage.setItem('produtos',JSON.stringify(j)); document.getElementById('statusShare').innerHTML='<span class="text-success">✅ Carregado da rede: '+j.length+' produtos</span>'; } }
+  }catch{}
+  try{
+    const r=await fetch('./operadores.json?_='+Date.now());
+    if(r.ok){ const j=await r.json(); if(j.length>0) localStorage.setItem('operadores',JSON.stringify(j)); }
+  }catch{}
+  let produtos=JSON.parse(localStorage.getItem('produtos')||'[]');
+  if(produtos.length===0){
+    produtos=[{id:'1', codigo:'46EL250USC01', nome:'LEITOR COD BARRAS 1D 2D ELGIN BEMA EL350', modelo:'46EL250USC01', tipo:'EL250', ean13:'', codigos:[
+      {ordem:1,nome:'QR Code - Etiqueta Produto',valorEsperado:'6922711051772',icone:'qr-code-scan'},
+      {ordem:2,nome:'Código 1D - Caixa 1',valorEsperado:'2112345678917',icone:'upc'},
+      {ordem:3,nome:'Código 1D - Caixa 2',valorEsperado:'6901028075763',icone:'upc-scan'},
+      {ordem:4,nome:'Firmware - Versão',valorEsperado:'',icone:'cpu'}
+    ]}];
+    localStorage.setItem('produtos',JSON.stringify(produtos));
+  }
+  let ops=JSON.parse(localStorage.getItem('operadores')||'[]');
+  if(ops.length===0){ ops=[{id:'1',matricula:'ADMIN',nome:'Administrador',usuario:'admin',senha:'123',perfil:'admin',turno:'Manhã',status:'Ativo'}]; localStorage.setItem('operadores',JSON.stringify(ops)); }
+  if(!localStorage.getItem('testes')) localStorage.setItem('testes','[]');
+  if(!localStorage.getItem('logs_evidencia')) localStorage.setItem('logs_evidencia','[]');
+}
+
+function carregarProdutos(){
+  const produtos=JSON.parse(localStorage.getItem('produtos')||'[]');
+  const sel=document.getElementById('produtoSel');
+  sel.innerHTML='<option value="">Selecione</option>'+produtos.map(p=>`<option value="${esc(p.codigo)}" data-modelo="${esc(p.modelo)}">${esc(p.codigo)} - ${esc(p.nome)}</option>`).join('');
+  const cfg=JSON.parse(localStorage.getItem('config_fixa_teste')||'null');
+  if(cfg&&cfg.produto) sel.value=cfg.produto;
+  sel.onchange=()=>{ const opt=sel.options[sel.selectedIndex]; if(opt&&opt.dataset.modelo) document.getElementById('modeloSel').value=opt.dataset.modelo; salvarConfigFixa(); };
+}
+function carregarOperadores(){
+  const ops=JSON.parse(localStorage.getItem('operadores')||'[]').filter(o=>o.status==='Ativo');
+  const sel=document.getElementById('operadorSel');
+  sel.innerHTML='<option value="">Selecione</option>'+ops.map(o=>`<option value="${esc(o.nome)}">${esc(o.matricula)} - ${esc(o.nome)}</option>`).join('');
+  const cfg=JSON.parse(localStorage.getItem('config_fixa_teste')||'null');
+  if(cfg&&cfg.operador) sel.value=cfg.operador;
+  sel.onchange=salvarConfigFixa;
+  // trava operador se for operador logado
+  const s=AuthSystem.getSession();
+  if(s.role==='operador'){
+    sel.value=s.nome; sel.disabled=true;
+    document.getElementById('modeloSel').readOnly=false;
+  }
+}
+function carregarConfigFixa(){
+  const cfg=JSON.parse(localStorage.getItem('config_fixa_teste')||'null');
+  if(cfg){
+    if(cfg.produto) document.getElementById('produtoSel').value=cfg.produto;
+    if(cfg.operador) document.getElementById('operadorSel').value=cfg.operador;
+    if(cfg.modelo) document.getElementById('modeloSel').value=cfg.modelo;
+    document.getElementById('statusConfig').innerText='Configurado: '+cfg.produto+' / '+cfg.operador;
+    document.getElementById('statusConfig').className='badge bg-success';
+    configFixa=cfg; bloquearConfig(true);
+  } else {
+    document.getElementById('statusConfig').innerText='Salve a configuração';
+    document.getElementById('statusConfig').className='badge bg-warning text-dark';
+  }
+}
+function salvarConfigFixa(){
+  const cfg={produto:document.getElementById('produtoSel').value,operador:document.getElementById('operadorSel').value,modelo:document.getElementById('modeloSel').value};
+  if(!cfg.produto||!cfg.operador||!cfg.modelo) return;
+  localStorage.setItem('config_fixa_teste',JSON.stringify(cfg)); configFixa=cfg;
+  document.getElementById('statusConfig').innerText='Salvo: '+cfg.produto+' / '+cfg.operador;
+  document.getElementById('statusConfig').className='badge bg-success';
+  bloquearConfig(true); atualizarEtiquetaAuto(); document.getElementById('serieSel').focus();
+}
+function bloquearConfig(b){ const s=AuthSystem.getSession(); if(s.role==='operador') b=true; document.getElementById('produtoSel').disabled=b; document.getElementById('operadorSel').disabled=b && s.role!=='operador'; document.getElementById('modeloSel').disabled=b; }
+function editarConfigFixa(){ const s=AuthSystem.getSession(); if(s.role==='operador'){ alert('Operador não pode editar produto, apenas série'); return; } bloquearConfig(false); document.getElementById('statusConfig').innerText='Editando...'; document.getElementById('statusConfig').className='badge bg-warning text-dark'; }
+function sanitizeNome(s){return (s||'').toString().replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,'_').slice(0,40);}
+function getCodigosDoProduto(codigoProduto){
+  const produtos=JSON.parse(localStorage.getItem('produtos')||'[]');
+  const prod=produtos.find(p=>p.codigo===codigoProduto);
+  if(prod && prod.codigos && prod.codigos.length>0) return prod.codigos.sort((a,b)=>a.ordem-b.ordem);
+  return [{ordem:1,nome:'QR Code',valorEsperado:'',icone:'qr-code-scan'},{ordem:2,nome:'Código Barras',valorEsperado:'',icone:'upc'}];
+}
+function renderStepsCodigos(codigos){
+  const container=document.getElementById('stepsContainer');
+  document.getElementById('totalCodigos').innerText=codigos.length;
+  container.innerHTML=codigos.map((c,i)=>{
+    const idx=i+1; const esperado=c.valorEsperado?`Esperado: ${esc(c.valorEsperado)}`:'Qualquer leitura';
+    return `<div class="step-card" id="step${idx}"><div class="d-flex justify-content-between"><div><b>${idx} - ${esc(c.nome)}</b><br><small class="text-muted">${esperado}</small></div><small id="lido${idx}"></small></div><input id="input${idx}" class="form-control input-leitura mt-2" placeholder="${idx===1?'Bipe: '+esc(c.nome):'Aguardando '+esc(c.nome)}" ${idx!==1?'disabled':''}></div>`;
+  }).join('');
+  document.querySelectorAll('.input-leitura').forEach((inp,i)=>{ inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();validarLeitura(i+1,inp.value.trim());}}); });
+}
+function iniciarSequencia(){
+  if(!localStorage.getItem('config_fixa_teste')){alert('Salve a configuração');return;}
+  const serie=document.getElementById('serieSel').value.trim();
+  if(!serie){alert('Digite o NÚMERO DE SÉRIE');return;}
+  const cfg=JSON.parse(localStorage.getItem('config_fixa_teste'));
+  listaCodigosProduto=getCodigosDoProduto(cfg.produto);
+  codigosEsperados={}; listaCodigosProduto.forEach((c,idx)=>{codigosEsperados[idx+1]=c.valorEsperado||null;});
+  renderStepsCodigos(listaCodigosProduto);
+  inicioTimestamp=new Date();
+  document.getElementById('horaInicio').innerText=inicioTimestamp.toLocaleTimeString('pt-BR');
+  document.getElementById('infoResumo').innerText=`${cfg.produto} | ${cfg.modelo} | Op: ${cfg.operador} | Série: ${serie}`;
+  dadosTeste={produto:cfg.produto,operador:cfg.operador,modelo:cfg.modelo,serie:serie,leituras:{},inicio:inicioTimestamp.toISOString(),codigosNomes:listaCodigosProduto};
+  document.getElementById('areaSequencia').style.display='block';
+  document.getElementById('resultadoFinal').style.display='none';
+  document.getElementById('comprovante').style.display='none';
+  document.getElementById('areaLogTerminal').style.display='none';
+  document.getElementById('msgAutoVolta').style.display='none';
+  document.getElementById('cardSerie').style.display='none';
+  ativarStep(1);
+}
+function ativarStep(n){stepAtual=n;document.querySelectorAll('.step-card').forEach((c,i)=>{c.classList.remove('ativo');if(i+1===n) c.classList.add('ativo');});let inp=document.getElementById('input'+n);if(!inp) return;inp.disabled=false;inp.classList.add('scan-ativo');inp.focus();}
+function validarLeitura(step,codigo){
+  if(!codigo) return;
+  let esp=codigosEsperados[step];let ok=!esp||codigo.replace(/\s/g,'')===esp.replace(/\s/g,'');
+  let inp=document.getElementById('input'+step);inp.value=codigo;inp.classList.remove('scan-ativo');
+  document.getElementById('lido'+step).innerHTML=(ok?'✅ '+esc(codigo):'❌ '+esc(codigo));
+  document.getElementById('step'+step).classList.add(ok?'concluido':'erro');inp.disabled=true;
+  dadosTeste.leituras[step]={codigo,correto:ok,esperado:esp||'LIVRE',nome:listaCodigosProduto[step-1]?.nome||'',timestamp:new Date().toISOString(),hora:new Date().toLocaleTimeString('pt-BR')};
+  if(step < listaCodigosProduto.length) setTimeout(()=>ativarStep(step+1),400); else setTimeout(()=>finalizar(),400);
+}
+async function finalizar(){
+  let fim=new Date();let todos=Object.values(dadosTeste.leituras).every(l=>l.correto);let res=todos?'APROVADO':'REPROVADO';let dur=((fim-inicioTimestamp)/1000).toFixed(1);
+  let teste={id:Date.now().toString(),data:fim.toISOString(),produtoCodigo:dadosTeste.produto,modelo:dadosTeste.modelo,serie:dadosTeste.serie,operador:dadosTeste.operador,resultado:res,leituras:dadosTeste.leituras,duracao:dur};
+  let testes=JSON.parse(localStorage.getItem('testes')||'[]'); testes.unshift(teste); localStorage.setItem('testes',JSON.stringify(testes));
+  let hash=btoa(teste.serie+'|'+teste.resultado+'|'+fim.toISOString()).slice(0,16);
+  let log={log_id:teste.id,inicio_br:inicioTimestamp.toLocaleString('pt-BR'),fim_br:fim.toLocaleString('pt-BR'),produto:teste.produtoCodigo,modelo:teste.modelo,serie:teste.serie,operador:teste.operador,resultado:res,duracao_segundos:dur,hash,leituras:teste.leituras};
+  let logs=JSON.parse(localStorage.getItem('logs_evidencia')||'[]');logs.unshift(log);localStorage.setItem('logs_evidencia',JSON.stringify(logs));window._ultimoLog=log;
+  document.getElementById('resultadoFinal').style.display='block';
+  document.getElementById('resultadoFinal').innerHTML=todos?`<div class="card-body text-center bg-success text-white"><h3>✅ ${res}</h3><p>${esc(dadosTeste.produto)} | ${esc(dadosTeste.modelo)} | ${esc(dadosTeste.serie)}</p></div>`:`<div class="card-body text-center bg-danger text-white"><h3>❌ ${res}</h3><p>${esc(dadosTeste.produto)} | ${esc(dadosTeste.modelo)} | ${esc(dadosTeste.serie)}</p></div>`;
+  preencher(log); atualizarContadorTotal();
+  const btnTop=document.getElementById('btnEtiqTop'); if(btnTop) btnTop.style.display=todos?'inline-flex':'none';
+  try{
+    if(todos){ salvarEtiquetaParaImpressao(log); const chk=document.getElementById('chkAutoImprimirEtiqueta'); if(chk&&chk.checked){ setTimeout(()=>imprimirEtiquetaAuto(log),800); } } else { localStorage.removeItem('etiqueta_para_impressao'); }
+  }catch(e){}
+  if(document.getElementById('chkAutoSalvar').checked){ await salvarLogNaRede(log); }
+  if(document.getElementById('chkAutoVolta').checked){ iniciarContagemRegressivaParaSerie(); }
+}
+let _ultimaImpressao=0;
+function imprimirEtiquetaAuto(log){
+  if(log&&log.resultado!=='APROVADO'){ alert('🚫 Só APROVADO gera etiqueta'); return; }
+  if(Date.now()-_ultimaImpressao<3000) return; _ultimaImpressao=Date.now();
+  const etiqueta=salvarEtiquetaParaImpressao(log);
+  if(!etiqueta){ alert('Etiqueta não encontrada'); return; }
+  // tenta imprimir via iframe oculto se etiquetas.html existir, senão abre nova janela
+  const params=new URLSearchParams({modo:'iframe',codigo:etiqueta.codigo,serie:etiqueta.serie,ean13:etiqueta.ean13||'',descricao:etiqueta.descricao,modelo:etiqueta.modelo,operador:etiqueta.operador,resultado:etiqueta.resultado});
+  const url='etiquetas.html?'+params.toString();
+  const iframe=document.createElement('iframe');
+  iframe.style.position='fixed'; iframe.style.left='-9999px'; iframe.style.width='0'; iframe.style.height='0'; iframe.style.border='0';
+  iframe.src=url;
+  iframe.onload=()=>{ try{ setTimeout(()=>{ iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(()=>iframe.remove(),2000); },1000); }catch(e){ window.open(url,'_blank'); iframe.remove(); } };
+  iframe.onerror=()=>{ alert('Abra a aba ETIQUETAS para imprimir'); iframe.remove(); };
+  document.body.appendChild(iframe);
+}
+function preencher(log){
+  document.getElementById('comprovante').style.display='block';
+  document.getElementById('c_inicio').innerText=log.inicio_br; document.getElementById('c_fim').innerText=log.fim_br;
+  document.getElementById('c_prod').innerText=log.produto; document.getElementById('c_model').innerText=log.modelo;
+  document.getElementById('c_serie').innerText=log.serie; document.getElementById('c_oper').innerText=log.operador;
+  document.getElementById('c_dur').innerText=log.duracao_segundos+'s'; document.getElementById('c_hash').innerText=log.hash;
+  document.getElementById('compResultado').innerText=log.resultado; document.getElementById('compID').innerText=log.log_id;
+  document.getElementById('c_leituras').innerHTML=Object.values(log.leituras).map((l,i)=>`<tr><td>${i+1} - ${esc(l.nome)}</td><td>${esc(l.esperado)}</td><td>${esc(l.codigo)}</td><td>${l.correto?'✅ OK':'❌ ERRO'}</td><td>${esc(l.hora)}</td></tr>`).join('');
+  let texto=`LOG ${log.log_id}\nINICIO: ${log.inicio_br} FIM: ${log.fim_br}\nPRODUTO: ${log.produto} MODELO: ${log.modelo} SERIE: ${log.serie} OPERADOR: ${log.operador} RESULTADO: ${log.resultado} DURACAO: ${log.duracao_segundos}s HASH: ${log.hash}\n`+Object.values(log.leituras).map(l=>`${l.nome} | ESP: ${l.esperado} | LIDO: ${l.codigo} | ${l.correto?'OK':'ERRO'}`).join('\n');
+  window._textoLogAtual=texto; document.getElementById('logTerminal').innerText=texto; document.getElementById('areaLogTerminal').style.display='block';
+}
+function voltarParaSerieManual(){
+  document.getElementById('areaSequencia').style.display='none'; document.getElementById('resultadoFinal').style.display='none'; document.getElementById('comprovante').style.display='none'; document.getElementById('areaLogTerminal').style.display='none'; document.getElementById('cardSerie').style.display='block'; document.getElementById('serieSel').value=''; document.getElementById('serieSel').focus(); document.getElementById('msgAutoVolta').style.display='none'; if(contadorInterval) clearInterval(contadorInterval);
+}
+function atualizarContadorTotal(){ const testes=JSON.parse(localStorage.getItem('testes')||'[]'); const hoje=new Date().toISOString().slice(0,10); const hojeQtd=testes.filter(t=>t.data && t.data.slice(0,10)===hoje).length; document.getElementById('contadorTotal').innerText='Total: '+testes.length+' | Hoje: '+hojeQtd; const el=document.getElementById('totalHoje'); if(el) el.innerText=hojeQtd; }
+function iniciarContagemRegressivaParaSerie(){ let seg=3; document.getElementById('msgAutoVolta').style.display='block'; document.getElementById('contadorRegressivo').innerText=seg; contadorInterval=setInterval(()=>{ seg--; document.getElementById('contadorRegressivo').innerText=seg; if(seg<=0){ clearInterval(contadorInterval); voltarParaSerieManual(); } },1000); }
+function gerarNomeArquivo(log,ext){ return sanitizeNome(log.serie)+'_'+log.log_id+'.'+ext; }
+function atualizarEtiquetaAuto(){ try{ const cfg=JSON.parse(localStorage.getItem('config_fixa_teste')||'{}'); const prodCod=cfg.produto||''; const modelo=cfg.modelo||''; const serie=document.getElementById('serieSel')?.value?.trim()||''; const operador=cfg.operador||''; const prods=JSON.parse(localStorage.getItem('produtos')||'[]'); const prod=prods.find(p=>p.codigo===prodCod)||{}; const etiqueta={codigo:prodCod,descricao:prod.nome||prodCod,modelo,ean13:prod.ean13||'',serie,operador,atualizadoEm:new Date().toISOString()}; localStorage.setItem('etiqueta_auto',JSON.stringify(etiqueta)); }catch{} }
+function salvarEtiquetaParaImpressao(log){ try{ const prods=JSON.parse(localStorage.getItem('produtos')||'[]'); const prod=prods.find(p=>p.codigo===log.produto)||{}; const etq={codigo:log.produto,descricao:prod.nome||log.produto,modelo:log.modelo,ean13:prod.ean13||'',serie:log.serie,operador:log.operador,resultado:log.resultado,data:log.fim_br,log_id:log.log_id,timestamp:new Date().toISOString()}; localStorage.setItem('etiqueta_para_impressao',JSON.stringify(etq)); localStorage.setItem('etiqueta_auto',JSON.stringify(etq)); return etq; }catch{ return null; } }
+
+// ===== REDE =====
+async function salvarProdutosNaRede(){
+  if(!dirHandleConfig){ try{ dirHandleConfig=await window.showDirectoryPicker({mode:'readwrite'}); }catch(e){ alert('Selecione a pasta config'); return; } }
+  try{ let produtos=localStorage.getItem('produtos')||'[]'; let f=await dirHandleConfig.getFileHandle('produtos.json',{create:true}); let w=await f.createWritable(); await w.write(produtos); await w.close(); let ops=localStorage.getItem('operadores')||'[]'; let f2=await dirHandleConfig.getFileHandle('operadores.json',{create:true}); let w2=await f2.createWritable(); await w2.write(ops); await w2.close(); document.getElementById('statusShare').innerHTML='<span class="text-success">✅ Salvo na rede</span>'; }catch(e){ document.getElementById('statusShare').innerHTML='<span class="text-danger">❌ '+e.message+'</span>'; }
+}
+async function carregarProdutosDaRede(){
+  try{
+    if(!dirHandleConfig) dirHandleConfig=await window.showDirectoryPicker({mode:'readwrite'});
+    let fp=await dirHandleConfig.getFileHandle('produtos.json'); let t=await (await fp.getFile()).text(); localStorage.setItem('produtos',t); carregarProdutos();
+    try{ let fo=await dirHandleConfig.getFileHandle('operadores.json'); let t2=await (await fo.getFile()).text(); localStorage.setItem('operadores',t2); carregarOperadores(); }catch{}
+    document.getElementById('statusShare').innerHTML='<span class="text-success">✅ Carregado da rede</span>';
+  }catch(e){ document.getElementById('statusShare').innerHTML='<span class="text-danger">❌ '+e.message+'</span>'; }
+}
+function exportarProdutos(){ const b=new Blob([localStorage.getItem('produtos')||'[]'],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='produtos.json'; a.click(); }
+function importarJSON(e){ const file=e.target.files[0]; if(!file) return; const r=new FileReader(); r.onload=(ev)=>{ try{ const data=JSON.parse(ev.target.result); if(file.name.includes('operador')){ localStorage.setItem('operadores',JSON.stringify(data)); carregarOperadores(); } else { localStorage.setItem('produtos',JSON.stringify(data)); carregarProdutos(); } document.getElementById('statusShare').innerHTML='<span class="text-success">✅ Importado '+file.name+'</span>'; }catch(err){ alert('JSON inválido'); } }; r.readAsText(file); }
+function forcarRecarregarTudo(){ inicializarDadosCompartilhados().then(()=>{ carregarProdutos(); carregarOperadores(); }); }
+async function selecionarPastaRede(){ try{ if(!window.showDirectoryPicker){ alert('Use Chrome/Edge'); return; } dirHandleRede=await window.showDirectoryPicker({mode:'readwrite'}); await dirHandleRede.requestPermission({mode:'readwrite'}); document.getElementById('caminhoRede').value=dirHandleRede.name; document.getElementById('statusPasta').innerHTML='<span class="text-success">✅ Pasta: '+dirHandleRede.name+'</span>'; salvarHandleIDB(dirHandleRede,'pastaRede'); try{ dirHandleConfig=await dirHandleRede.getDirectoryHandle('config',{create:true}); }catch{} }catch(e){ document.getElementById('statusPasta').innerHTML='<span class="text-danger">❌ '+e.message+'</span>'; } }
+async function forcarSalvarRede(){ if(!window._ultimoLog) return alert('Faça um teste'); await salvarLogNaRede(window._ultimoLog); }
+async function testarPastaRede(){ if(!dirHandleRede){ let h=await restaurarHandleIDB('pastaRede'); if(!h) return alert('Selecione a pasta'); dirHandleRede=h; } try{ let f=await dirHandleRede.getFileHandle('TESTE_'+Date.now()+'.txt',{create:true}); let w=await f.createWritable(); await w.write('TESTE OK '+new Date().toLocaleString('pt-BR')); await w.close(); document.getElementById('statusPasta').innerHTML='<span class="text-success">✅ Teste OK</span>'; }catch(e){ document.getElementById('statusPasta').innerHTML='<span class="text-danger">❌ '+e.message+'</span>'; } }
+async function salvarLogNaRede(log){ if(!dirHandleRede){ dirHandleRede=await restaurarHandleIDB('pastaRede'); if(!dirHandleRede){ document.getElementById('statusPasta').innerHTML='⚠️ Selecione a pasta'; return; } } try{ let dataHoje=new Date().toISOString().slice(0,10); let pasta=dirHandleRede; try{ pasta=await dirHandleRede.getDirectoryHandle('LOGS_'+dataHoje,{create:true}); }catch{} let nomeTXT=gerarNomeArquivo(log,'txt'); let nomeJSON=gerarNomeArquivo(log,'json'); let f1=await pasta.getFileHandle(nomeTXT,{create:true}); let w1=await f1.createWritable(); await w1.write(window._textoLogAtual||JSON.stringify(log)); await w1.close(); let f2=await pasta.getFileHandle(nomeJSON,{create:true}); let w2=await f2.createWritable(); await w2.write(JSON.stringify(log,null,2)); await w2.close(); document.getElementById('statusPasta').innerHTML='<span class="text-success">✅ Salvo: '+nomeTXT+'</span>'; }catch(e){ document.getElementById('statusPasta').innerHTML='<span class="text-danger">❌ '+e.message+'</span>'; } }
+function salvarHandleIDB(handle,key){ if(!window.indexedDB) return; const req=indexedDB.open('el250-handles',1); req.onupgradeneeded=e=>{ e.target.result.createObjectStore('handles'); }; req.onsuccess=e=>{ const db=e.target.result; const tx=db.transaction('handles','readwrite'); tx.objectStore('handles').put(handle,key); }; }
+function restaurarHandleIDB(key='pastaRede'){ return new Promise(res=>{ if(!window.indexedDB) return res(null); const req=indexedDB.open('el250-handles',1); req.onsuccess=e=>{ const db=e.target.result; const tx=db.transaction('handles','readonly'); const get=tx.objectStore('handles').get(key); get.onsuccess=()=>res(get.result||null); get.onerror=()=>res(null); }; req.onerror=()=>res(null); }); }
+
+// TABS
+function switchTab(nome){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('ativo'));
+  document.querySelectorAll('.tabBtn').forEach(b=>{b.classList.remove('tab-ativo'); b.classList.add('tab-inativo');});
+  if(nome==='testes'){
+    document.getElementById('tabTestes').classList.add('ativo');
+    document.getElementById('btnTabTestes').classList.add('tab-ativo'); document.getElementById('btnTabTestes').classList.remove('tab-inativo');
+  }else{
+    const s=AuthSystem.getSession(); if(s.role==='operador'){ alert('Acesso restrito'); return; }
+    document.getElementById('tabEtiquetas').classList.add('ativo');
+    document.getElementById('btnTabEtiquetas').classList.add('tab-ativo'); document.getElementById('btnTabEtiquetas').classList.remove('tab-inativo');
+    let frame=document.getElementById('frameEtiquetas'); try{ if(frame.contentWindow && frame.contentWindow.carregarDaEtiquetaTeste){ frame.contentWindow.carregarDaEtiquetaTeste(); } }catch{ frame.src=frame.src; }
+  }
+  localStorage.setItem('aba_ativa','tab'+nome.charAt(0).toUpperCase()+nome.slice(1));
+}
+
+// offline indicator + SW
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('./sw.js'); }); }
+function updateOnlineStatus(){ const el=document.getElementById('offlineIndicator'); if(!navigator.onLine){ el.textContent='📴 Offline'; el.className='offline'; el.style.display='block'; } else { el.textContent='🌐 Online'; el.className='online'; el.style.display='block'; setTimeout(()=>el.style.display='none',4000);} }
+window.addEventListener('online',updateOnlineStatus); window.addEventListener('offline',updateOnlineStatus); window.addEventListener('load',updateOnlineStatus);
+</script>
+</body>
+</html>
