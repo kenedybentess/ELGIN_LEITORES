@@ -278,7 +278,18 @@ function preencher(log){
   document.getElementById('c_dur').innerText=log.duracao_segundos+'s'; document.getElementById('c_hash').innerText=log.hash;
   document.getElementById('compResultado').innerText=log.resultado; document.getElementById('compID').innerText=log.log_id;
   document.getElementById('c_leituras').innerHTML=Object.values(log.leituras).map((l,i)=>`<tr><td>${i+1} - ${esc(l.nome)}</td><td>${esc(l.esperado)}</td><td>${esc(l.codigo)}</td><td>${l.correto?'✅ OK':'❌ ERRO'}</td><td>${esc(l.hora)}</td></tr>`).join('');
-  let texto=`LOG ${log.log_id}\nINICIO: ${log.inicio_br} FIM: ${log.fim_br}\nPRODUTO: ${log.produto} MODELO: ${log.modelo} SERIE: ${log.serie} OPERADOR: ${log.operador} RESULTADO: ${log.resultado} DURACAO: ${log.duracao_segundos}s HASH: ${log.hash}\n`+Object.values(log.leituras).map(l=>`${l.nome} | ESP: ${l.esperado} | LIDO: ${l.codigo} | ${l.correto?'OK':'ERRO'}`).join('\n');
+  let legenda=`========================================
+LEGENDA DO ARQUIVO - EVIDENCIA DE TESTE
+========================================
+NUMERO DE SERIE: ${log.serie}
+CODIGO DO PRODUTO: ${log.produto}
+MODELO: ${log.modelo}
+OPERADOR: ${log.operador}
+RESULTADO: ${log.resultado}
+DATA/HORA: ${log.fim_br}
+ID LOG: ${log.log_id}
+========================================`;
+  let texto=legenda+`\nINICIO: ${log.inicio_br} FIM: ${log.fim_br}\nDURACAO: ${log.duracao_segundos}s HASH: ${log.hash}\n`+Object.values(log.leituras).map(l=>`${l.nome} | ESP: ${l.esperado} | LIDO: ${l.codigo} | ${l.correto?'OK':'ERRO'}`).join('\n');
   window._textoLogAtual=texto; document.getElementById('logTerminal').innerText=texto; document.getElementById('areaLogTerminal').style.display='block';
 }
 function voltarParaSerieManual(){
@@ -286,7 +297,7 @@ function voltarParaSerieManual(){
 }
 function atualizarContadorTotal(){ const testes=JSON.parse(localStorage.getItem('testes')||'[]'); const hoje=new Date().toISOString().slice(0,10); const hojeQtd=testes.filter(t=>t.data && t.data.slice(0,10)===hoje).length; document.getElementById('contadorTotal').innerText='Total: '+testes.length+' | Hoje: '+hojeQtd; const el=document.getElementById('totalHoje'); if(el) el.innerText=hojeQtd; }
 function iniciarContagemRegressivaParaSerie(){ let seg=3; document.getElementById('msgAutoVolta').style.display='block'; document.getElementById('contadorRegressivo').innerText=seg; contadorInterval=setInterval(()=>{ seg--; document.getElementById('contadorRegressivo').innerText=seg; if(seg<=0){ clearInterval(contadorInterval); voltarParaSerieManual(); } },1000); }
-function gerarNomeArquivo(log,ext){ return sanitizeNome(log.serie)+'_'+log.log_id+'.'+ext; }
+function gerarNomeArquivo(log,ext){ const prod=sanitizeNome(log.produto||log.produtoCodigo||'PROD'); const serie=sanitizeNome(log.serie||'SN'); return prod+'_'+serie+'_'+log.log_id+'.'+ext; }
 function atualizarEtiquetaAuto(){ try{ const cfg=JSON.parse(localStorage.getItem('config_fixa_teste')||'{}'); const prodCod=cfg.produto||''; const modelo=cfg.modelo||''; const serie=document.getElementById('serieSel')?.value?.trim()||''; const operador=cfg.operador||''; const prods=JSON.parse(localStorage.getItem('produtos')||'[]'); const prod=prods.find(p=>p.codigo===prodCod)||{}; const etiqueta={codigo:prodCod,descricao:prod.nome||prodCod,modelo,ean13:prod.ean13||'',serie,operador,atualizadoEm:new Date().toISOString()}; localStorage.setItem('etiqueta_auto',JSON.stringify(etiqueta)); }catch{} }
 function salvarEtiquetaParaImpressao(log){ try{ const prods=JSON.parse(localStorage.getItem('produtos')||'[]'); const prod=prods.find(p=>p.codigo===log.produto)||{}; const etq={codigo:log.produto,descricao:prod.nome||log.produto,modelo:log.modelo,ean13:prod.ean13||'',serie:log.serie,operador:log.operador,resultado:log.resultado,data:log.fim_br,log_id:log.log_id,timestamp:new Date().toISOString()}; localStorage.setItem('etiqueta_para_impressao',JSON.stringify(etq)); localStorage.setItem('etiqueta_auto',JSON.stringify(etq)); return etq; }catch{ return null; } }
 
