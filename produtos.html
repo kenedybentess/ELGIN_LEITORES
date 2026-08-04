@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produtos - Leitores PRO</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Segoe UI,Tahoma,sans-serif}
+body{background:#f4f6f9;padding:20px}
+.header-prod{background:linear-gradient(135deg,#0d6efd,#1e88e5);color:white;padding:25px;border-radius:15px;margin-bottom:30px}
+.codigo-item{border:2px solid #dee2e6;border-radius:10px;padding:15px;margin-bottom:10px;background:#f8f9fa}
+.codigo-item.ativo{border-color:#0d6efd;background:#e7f1ff}
+</style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d6efd">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="EL250-Flash">
+<link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1067/1067357.png">
+<style>
+#offlineIndicator{position:fixed;bottom:20px;right:20px;z-index:10000;padding:10px 16px;border-radius:30px;font-size:13px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.2);display:none}
+#offlineIndicator.offline{display:block;background:#dc3545;color:white}
+#offlineIndicator.online{display:block;background:#198754;color:white;animation:fadeOut 3s forwards 2s}
+@keyframes fadeOut{to{opacity:0;transform:translateY(20px)}}
+</style>
+</head>
+<body>
+<div class="container-fluid">
+    <div class="header-prod">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2><i class="bi bi-box-seam"></i> Cadastro de Produtos</h2>
+                <p class="mb-0">Defina os códigos que devem ser escaneados no teste</p>
+            </div>
+            <a href="index.html" class="btn btn-light"><i class="bi bi-arrow-left"></i> Dashboard</a>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4>Produtos Cadastrados</h4>
+        <button class="btn btn-primary" onclick="abrirModalProduto()"><i class="bi bi-plus-circle"></i> Novo Produto</button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead><tr><th>Código</th><th>Nome</th><th>Modelo</th><th>Tipo</th><th>EAN13</th><th>Códigos Teste</th><th style="width:150px">Ações</th></tr></thead>
+                    <tbody id="tabelaProdutos"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Produto -->
+<div class="modal fade" id="modalProduto" tabindex="-1">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header bg-primary text-white">
+<h5 class="modal-title" id="tituloModalProduto">Novo Produto</h5>
+<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+<input type="hidden" id="produtoId">
+<div class="row">
+    <div class="col-md-6 mb-3"><label>Código *</label><input id="produtoCodigo" class="form-control" required></div>
+    <div class="col-md-6 mb-3"><label>Nome *</label><input id="produtoNome" class="form-control" required></div>
+    <div class="col-md-6 mb-3"><label>Modelo *</label><input id="produtoModelo" class="form-control" required></div>
+    <div class="col-md-6 mb-3"><label>Tipo</label>
+        <select id="produtoTipo" class="form-select" onchange="atualizarCodigosPadrao()">
+            <option value="BR520">BR520</option>
+            <option value="EL250">EL250</option>
+            <option value="FLASH">FLASH</option>
+            <option value="EL8600">EL8600</option>
+        </select>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label><i class="bi bi-upc"></i> Código EAN13</label>
+        <input id="produtoEAN13" class="form-control" maxlength="13" placeholder="Ex: 7891234567890" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+        <small class="text-muted">13 dígitos - validação automática</small>
+    </div>
+</div>
+
+<hr>
+<h6><i class="bi bi-upc-scan"></i> Configuração de Códigos para Teste</h6>
+<p class="text-muted small">Defina quais códigos devem ser escaneados na sequência. Deixe vazio se não precisar validar valor específico.</p>
+
+<div id="listaCodigos"></div>
+
+<button type="button" class="btn btn-sm btn-outline-primary" onclick="adicionarCodigo()">
+    <i class="bi bi-plus"></i> Adicionar Código
+</button>
+</div>
+<div class="modal-footer">
+<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+<button type="button" class="btn btn-primary" onclick="salvarProduto()">Salvar</button>
+</div>
+</div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let modalProduto, contadorCodigo = 0;
+if(!localStorage.getItem('produtos')) localStorage.setItem('produtos',JSON.stringify([]));
+
+document.addEventListener('DOMContentLoaded',function(){
+    modalProduto=new bootstrap.Modal(document.getElementById('modalProduto'));
+    carregarProdutos();
+});
+
+function carregarProdutos(){
+    const produtos=JSON.parse(localStorage.getItem('produtos'));
+    const tbody=document.getElementById('tabelaProdutos');
+    tbody.innerHTML=produtos.length===0?'<tr><td colspan="7" class="text-center text-muted">Nenhum produto</td></tr>':
+    produtos.map(p=>{
+        const qtdCodigos = p.codigos ? p.codigos.length : 0;
+        const eanDisplay = p.ean13 ? `<span class="font-monospace">${p.ean13}</span>` : '<span class="text-muted">-</span>';
+        return `<tr>
+            <td><strong>${p.codigo}</strong></td>
+            <td>${p.nome}</td>
+            <td>${p.modelo}</td>
+            <td><span class="badge bg-secondary">${p.tipo}</span></td>
+            <td>${eanDisplay}</td>
+            <td><span class="badge bg-info">${qtdCodigos} código(s)</span></td>
+            <td>
+                <button class="btn btn-sm btn-warning me-1" onclick="editarProduto('${p.id}')"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="excluirProduto('${p.id}')"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`
+    }).join('');
+}
+
+function abrirModalProduto(){
+    document.getElementById('tituloModalProduto').innerText='Novo Produto';
+    document.getElementById('produtoId').value='';
+    document.getElementById('produtoCodigo').value='';
+    document.getElementById('produtoNome').value='';
+    document.getElementById('produtoModelo').value='';
+    document.getElementById('produtoTipo').value='EL250';
+    document.getElementById('produtoEAN13').value='';
+    document.getElementById('listaCodigos').innerHTML='';
+    contadorCodigo = 0;
+    atualizarCodigosPadrao();
+    modalProduto.show();
+}
+
+function atualizarCodigosPadrao(){
+    const tipo = document.getElementById('produtoTipo').value;
+    document.getElementById('listaCodigos').innerHTML='';
+    contadorCodigo = 0;
+    
+    if(tipo === 'EL250'){
+        adicionarCodigo('QR Code', '6922711051772', 'qrcode');
+        adicionarCodigo('Código de Barras 1D', '2 112345 678917', 'barcode');
+        adicionarCodigo('Código de Barras 1D', '6901028075763', 'barcode');
+        adicionarCodigo('Versão de Firmware', '', 'cpu');
+    }
+}
+
+function adicionarCodigo(nome = '', valor = '', icone = 'upc') {
+    contadorCodigo++;
+    const div = document.createElement('div');
+    div.className = 'codigo-item';
+    div.id = `codigo-${contadorCodigo}`;
+    div.innerHTML = `
+        <div class="row align-items-end">
+            <div class="col-md-1">
+                <label class="small text-muted">Ordem</label>
+                <input type="number" class="form-control form-control-sm ordem-codigo" value="${contadorCodigo}" min="1">
+            </div>
+            <div class="col-md-3">
+                <label class="small">Nome do Código *</label>
+                <input type="text" class="form-control form-control-sm nome-codigo" value="${nome}" placeholder="Ex: QR Code" required>
+            </div>
+            <div class="col-md-4">
+                <label class="small">Valor Esperado</label>
+                <input type="text" class="form-control form-control-sm valor-codigo" value="${valor}" placeholder="Deixe vazio se aceitar qualquer">
+            </div>
+            <div class="col-md-2">
+                <label class="small">Ícone</label>
+                <select class="form-select form-select-sm icone-codigo">
+                    <option value="qr-code-scan" ${icone==='qrcode'?'selected':''}>QR Code</option>
+                    <option value="upc" ${icone==='barcode'?'selected':''}>Código Barras</option>
+                    <option value="cpu" ${icone==='cpu'?'selected':''}>Firmware</option>
+                    <option value="tag">Tag</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-danger w-100" onclick="removerCodigo(${contadorCodigo})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    document.getElementById('listaCodigos').appendChild(div);
+}
+
+function removerCodigo(id){
+    document.getElementById(`codigo-${id}`).remove();
+}
+
+function validarEAN13(ean){
+    if(!ean) return true;
+    if(!/^\d{13}$/.test(ean)) return false;
+    let sum=0;
+    for(let i=0;i<12;i++){ sum+= parseInt(ean[i]) * (i%2===0?1:3); }
+    const check = (10 - (sum % 10)) % 10;
+    return check === parseInt(ean[12]);
+}
+
+function salvarProduto(){
+    const id=document.getElementById('produtoId').value;
+    const codigo=document.getElementById('produtoCodigo').value.trim();
+    const nome=document.getElementById('produtoNome').value.trim();
+    const modelo=document.getElementById('produtoModelo').value.trim();
+    const tipo=document.getElementById('produtoTipo').value;
+    const ean13=document.getElementById('produtoEAN13').value.trim();
+    
+    if(!codigo||!nome||!modelo)return alert('Preencha todos os campos obrigatórios');
+    if(ean13 && !/^\d{13}$/.test(ean13)) return alert('EAN13 deve ter 13 dígitos');
+    if(ean13 && !validarEAN13(ean13)) return alert('EAN13 inválido - dígito verificador não confere');
+    
+    // Coleta códigos configurados
+    const codigos = [];
+    document.querySelectorAll('.codigo-item').forEach(item => {
+        const ordem = parseInt(item.querySelector('.ordem-codigo').value);
+        const nomeCod = item.querySelector('.nome-codigo').value.trim();
+        const valor = item.querySelector('.valor-codigo').value.trim();
+        const icone = item.querySelector('.icone-codigo').value;
+        
+        if(nomeCod){
+            codigos.push({ordem, nome: nomeCod, valorEsperado: valor, icone});
+        }
+    });
+    codigos.sort((a,b) => a.ordem - b.ordem);
+    
+    let produtos=JSON.parse(localStorage.getItem('produtos'));
+    if(produtos.find(p=>p.codigo===codigo&&p.id!==id))return alert('Código já existe');
+    
+    const produto = {id: id || Date.now().toString(), codigo, nome, modelo, tipo, ean13, codigos};
+    
+    if(id) produtos=produtos.map(p=>p.id===id?produto:p);
+    else produtos.push(produto);
+    
+    localStorage.setItem('produtos',JSON.stringify(produtos));
+    modalProduto.hide();
+    carregarProdutos();
+}
+
+function editarProduto(id){
+    const p=JSON.parse(localStorage.getItem('produtos')).find(p=>p.id===id);
+    document.getElementById('tituloModalProduto').innerText='Editar Produto';
+    document.getElementById('produtoId').value=p.id;
+    document.getElementById('produtoCodigo').value=p.codigo;
+    document.getElementById('produtoNome').value=p.nome;
+    document.getElementById('produtoModelo').value=p.modelo;
+    document.getElementById('produtoTipo').value=p.tipo;
+    document.getElementById('produtoEAN13').value=p.ean13 || '';
+    
+    document.getElementById('listaCodigos').innerHTML='';
+    contadorCodigo = 0;
+    
+    if(p.codigos && p.codigos.length > 0){
+        p.codigos.forEach(c => {
+            adicionarCodigo(c.nome, c.valorEsperado, c.icone);
+            document.querySelector(`#codigo-${contadorCodigo} .ordem-codigo`).value = c.ordem;
+        });
+    }
+    
+    modalProduto.show();
+}
+
+function excluirProduto(id){
+    if(!confirm('Excluir produto?'))return;
+    let produtos=JSON.parse(localStorage.getItem('produtos')).filter(p=>p.id!==id);
+    localStorage.setItem('produtos',JSON.stringify(produtos));
+    carregarProdutos();
+}
+</script>
+
+<div id="offlineIndicator"></div>
+<script>
+// Registra Service Worker para funcionar offline
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      console.log('✅ SW registrado offline pronto', reg.scope);
+    }).catch(err => console.log('SW falhou', err));
+  });
+}
+
+// Indicador offline/online
+function updateOnlineStatus(){
+  const el = document.getElementById('offlineIndicator');
+  if (!el) return;
+  if (!navigator.onLine){
+    el.textContent = '📴 Modo Offline - funcionando sem internet';
+    el.className = 'offline';
+    el.style.display = 'block';
+  } else {
+    el.textContent = '🌐 Online';
+    el.className = 'online';
+    el.style.display = 'block';
+    setTimeout(()=>{ el.style.display='none'; }, 5000);
+  }
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+window.addEventListener('load', updateOnlineStatus);
+</script>
+</body>
+</html>
